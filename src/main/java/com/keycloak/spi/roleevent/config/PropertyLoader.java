@@ -102,15 +102,27 @@ public class PropertyLoader {
             }
         }
 
-        // Add idempotence, retry-safe configs
-        producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
-        producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
-        producerProps.put(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
-        producerProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+        // Add idempotence, retry-safe configs if not present in the properties file
+        if (!producerProps.containsKey(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG)) {
+            producerProps.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        }
+        if (!producerProps.containsKey(ProducerConfig.ACKS_CONFIG)) {
+            producerProps.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        }
+        if (!producerProps.containsKey(ProducerConfig.RETRIES_CONFIG)) {
+            producerProps.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+        }
+        if (!producerProps.containsKey(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION)) {
+            producerProps.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+        }
         
-        // Serializers
-        producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        // Serializers if not present in the properties file
+        if (!producerProps.containsKey(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG)) {
+            producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        }
+        if (!producerProps.containsKey(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG)) {
+            producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        }
 
         return producerProps;
     }
