@@ -1,0 +1,6 @@
+com\keycloak\spi\roleevent\model\RoleEventMessage$RoleEventMessageBuilder.class
+com\keycloak\spi\roleevent\model\RoleEventMessage.class
+com\keycloak\spi\roleevent\kafka\KafkaProducerManager.class
+com\keycloak\spi\roleevent\config\PropertyLoader.class
+com\keycloak\spi\roleevent\provider\RoleEventListenerProvider.class
+com\keycloak\spi\roleevent\provider\RoleEventListenerProviderFactory.class
