@@ -1,5 +1,0 @@
-D:\keycloak-spi\role-event-spi\src\main\java\com\keycloak\spi\roleevent\config\PropertyLoader.java
-D:\keycloak-spi\role-event-spi\src\main\java\com\keycloak\spi\roleevent\kafka\KafkaProducerManager.java
-D:\keycloak-spi\role-event-spi\src\main\java\com\keycloak\spi\roleevent\model\RoleEventMessage.java
-D:\keycloak-spi\role-event-spi\src\main\java\com\keycloak\spi\roleevent\provider\RoleEventListenerProvider.java
-D:\keycloak-spi\role-event-spi\src\main\java\com\keycloak\spi\roleevent\provider\RoleEventListenerProviderFactory.java
