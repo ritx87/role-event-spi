@@ -1,0 +1,1 @@
+subjectAltName = DNS:kafka,DNS:localhost,DNS:star-kafka-kafka-bootstrap.kafka.svc,IP:127.0.0.1

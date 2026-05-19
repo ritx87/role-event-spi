@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: role-event-consumer
+    
+  datasource:
+    url: jdbc:postgresql://localhost:5432/keycloak
+    username: keycloak
+    password: password
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  kafka:
+    bootstrap-servers: localhost:9094
+    consumer:
+      group-id: role-audit-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="consumer-user" password="consumer-secret";
+      ssl.truststore.location: ../docker/certs/kafka.server.truststore.jks
+      ssl.truststore.password: confluent
+
+server:
+  port: 8081

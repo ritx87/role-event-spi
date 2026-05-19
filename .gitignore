@@ -58,3 +58,10 @@ $RECYCLE.BIN/
 # Environment configurations
 .env
 .env.local
+
+# Generated certs/keystores for Kafka SSL
+docker/certs/*
+!docker/certs/generate-certs.sh
+!docker/certs/ext.cnf
+# Consumer local run log
+role-event-consumer/*.log

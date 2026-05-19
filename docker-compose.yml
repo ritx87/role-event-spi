@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  cert-generator:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: role-event-spi-cert-generator
+    volumes:
+      - ./docker/certs:/certs
+    command: >
+      bash -c "
+      if [ ! -f /certs/kafka.server.keystore.jks ]; then
+        /certs/generate-certs.sh;
+      else
+        echo 'Certificates already exist.';
+      fi"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: role-event-spi-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: role-event-spi-kafka
+    depends_on:
+      cert-generator:
+        condition: service_completed_successfully
+      zookeeper:
+        condition: service_started
+    networks:
+      default:
+        aliases:
+          - kafka
+          - star-kafka-kafka-bootstrap.kafka.svc
+    ports:
+      - "9093:9093"
+      - "9094:9094"
+    entrypoint: ["/bin/bash", "-c", "/etc/confluent/docker/configure && /etc/confluent/docker/launch"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: role-event-spi-zookeeper:2181
+      KAFKA_LISTENERS: SASL_SSL://0.0.0.0:9093,SASL_SSL_EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: SASL_SSL://star-kafka-kafka-bootstrap.kafka.svc:9093,SASL_SSL_EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_SSL:SASL_SSL,SASL_SSL_EXTERNAL:SASL_SSL
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_SSL
+      
+      # SSL Settings
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.server.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: confluent
+      KAFKA_SSL_KEYSTORE_PASSWORD: confluent
+      KAFKA_SSL_KEY_CREDENTIALS: confluent
+      KAFKA_SSL_KEY_PASSWORD: confluent
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.server.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: confluent
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: confluent
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/secrets/kafka.server.keystore.jks
+      KAFKA_SSL_TRUSTSTORE_LOCATION: /etc/kafka/secrets/kafka.server.truststore.jks
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      KAFKA_SSL_CLIENT_AUTH: none
+      
+      # SASL Settings
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-512
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-512
+      
+      # Security Config
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf -Dzookeeper.sasl.client=false"
+      
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - ./docker/certs:/etc/kafka/secrets
+      - ./docker/kafka_server_jaas.conf:/etc/kafka/secrets/kafka_server_jaas.conf
+
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: role-event-spi-kafka-setup
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      echo '$$CLIENT_PROPERTIES' > /tmp/client.properties &&
+      echo 'Waiting for Kafka to be ready...' &&
+      sleep 15 &&
+      echo 'Creating SCRAM user for admin (setup script)...' &&
+      kafka-configs --zookeeper role-event-spi-zookeeper:2181 --alter --add-config 'SCRAM-SHA-512=[password=admin-secret]' --entity-type users --entity-name admin &&
+      echo 'Creating SCRAM user for Keycloak...' &&
+      kafka-configs --zookeeper role-event-spi-zookeeper:2181 --alter --add-config 'SCRAM-SHA-512=[password=keycloak-secret]' --entity-type users --entity-name keycloak-user &&
+      echo 'Creating SCRAM user for Consumer...' &&
+      kafka-configs --zookeeper role-event-spi-zookeeper:2181 --alter --add-config 'SCRAM-SHA-512=[password=consumer-secret]' --entity-type users --entity-name consumer-user &&
+      echo 'Setup complete!'
+      "
+    volumes:
+      - ./docker/certs:/etc/kafka/certs
+    environment:
+      CLIENT_PROPERTIES: |
+        security.protocol=SASL_SSL
+        sasl.mechanism=SCRAM-SHA-512
+        ssl.truststore.location=/etc/kafka/certs/kafka.server.truststore.jks
+        ssl.truststore.password=confluent
+        sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"admin\" password=\"admin-secret\";
+
+  postgres:
+    image: postgres:15
+    container_name: role-event-spi-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.0
+    container_name: role-event-spi-keycloak
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://role-event-spi-postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # Consumer variables
+      APP_ENV: dev
+      KAFKA_USERNAME: keycloak-user
+      KAFKA_PASSWORD: keycloak-secret
+    volumes:
+      - ./target/role-event-spi-1.0.0-SNAPSHOT.jar:/opt/keycloak/providers/role-event-spi.jar
+      - ./docker/certs:/etc/kafka/certs
+    command: start-dev
